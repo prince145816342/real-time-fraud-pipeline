@@ -1,57 +1,48 @@
+import psycopg2
 import json
-import numpy as np
-from datetime import datetime
 from kafka import KafkaConsumer
-from sklearn.ensemble import IsolationForest
 
-# 1. Warm up the Advanced AI model
-print("Booting up the Multi-Variable Anomaly Detection model...")
-model = IsolationForest(contamination=0.05, random_state=42)
+# 1. Connect to your PostgreSQL database running in Docker
+try:
+    conn = psycopg2.connect(
+        host="localhost",
+        database="postgres", # Change if you named your DB differently
+        user="postgres",     # Change if your DB user is different
+        password="password", # Change to your DB password
+        port="5432"
+    )
+    cursor = conn.cursor()
+    
+    # Create the table if it doesn't exist yet
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS fraud_alerts (
+            id SERIAL PRIMARY KEY,
+            transaction_id VARCHAR(255),
+            amount FLOAT,
+            merchant_risk INT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    print("Database connected and table ready!")
 
-# 2. Risk weights for Categorical Data (Merchants)
-merchant_risk = {
-    "Amazon": 1.0,
-    "Target": 1.2,
-    "Local Grocery": 0.5,
-    "Starbucks": 0.3,
-    "Uber": 1.5
-}
+except Exception as e:
+    print(f"Database connection failed: {e}")
 
-# Generate baseline 3D training data [amount, hour_of_day, merchant_risk]
-# Normal amounts: $5-$150, Hours: 8 AM - 10 PM (8-22), Risk: 0.3-1.5
-baseline_data = np.column_stack((
-    np.random.uniform(5.0, 150.0, 500),
-    np.random.uniform(8.0, 22.0, 500),
-    np.random.uniform(0.3, 1.5, 500)
-))
-model.fit(baseline_data)
-print("Model ready! Connecting to the data stream...")
+# 2. Your existing Kafka Consumer setup goes here
+# consumer = KafkaConsumer(...)
 
-# 3. Connect to the Kafka pipeline
-consumer = KafkaConsumer(
-    'financial_transactions',
-    bootstrap_servers=['localhost:9092'],
-    value_deserializer=lambda x: json.loads(x.decode('utf-8'))
-)
-
-# 4. Analyze the live stream
-for message in consumer:
-    transaction = message.value
-    
-    # Feature Engineering: Extract Hour from Timestamp
-    dt_obj = datetime.fromtimestamp(transaction['timestamp'])
-    hour_of_day = dt_obj.hour + (dt_obj.minute / 60.0)
-    
-    # Feature Engineering: Map Merchant to Risk Score
-    risk_score = merchant_risk.get(transaction['merchant'], 1.0)
-    
-    # Format the 3D data array for the model
-    features = np.array([[transaction['amount'], hour_of_day, risk_score]])
-    
-    # Predict (-1 means Anomaly/Fraud, 1 means Normal)
-    prediction = model.predict(features)
-    
-    if prediction[0] == -1:
-        print(f"🚨 FRAUD ALERT: Suspicious pattern detected! {transaction}")
-    else:
-        print(f"✅ CLEAR: Normal activity. {transaction}")
+# 3. Inside your message loop, save the fraud alerts to the database
+# for message in consumer:
+#     data = json.loads(message.value)
+#     prediction = model.predict([features])
+#     
+#     if prediction == -1:  # Assuming -1 means Fraud in Isolation Forest
+#         print(f"FRAUD DETECTED: {data['transaction_id']}")
+#         
+#         # Insert into PostgreSQL
+#         cursor.execute('''
+#             INSERT INTO fraud_alerts (transaction_id, amount, merchant_risk)
+#             VALUES (%s, %s, %s)
+#         ''', (data['transaction_id'], data['amount'], data['merchant_risk']))
+#         conn.commit()
