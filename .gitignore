@@ -1,0 +1,27 @@
+
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+
+# Editor files
+.vscode/
+
+# Generated model files
+*.pkl
+
+# Local database files
+*.db
+
+# Logs
+*.log
