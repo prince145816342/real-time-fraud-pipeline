@@ -118,6 +118,45 @@ docker exec fraud-postgres psql -U postgres -d postgres -c "SELECT * FROM fraud_
 - Kafka offset handling and database deduplication need improvement for reliable recovery.
 - Future improvements could include a dashboard, real datasets, model evaluation, and automated tests.
 
+
+## Real-World Dataset Evaluation
+
+In addition to the synthetic transaction streaming prototype, this project includes a separate Isolation Forest evaluation using the Kaggle Credit Card Fraud Detection dataset.
+
+**Dataset:** 284,807 transactions, including 492 labeled fraudulent transactions.
+
+**Methodology:**
+- Used a stratified 60% training, 20% validation, and 20% testing split.
+- Trained Isolation Forest models using 30 input features.
+- Compared contamination values of 0.002, 0.003, and 0.005.
+- Selected contamination = 0.003 based on validation F1-score.
+- Evaluated the selected model on the held-out test split.
+
+**Test Results:**
+
+| Metric | Result |
+|---|---:|
+| Accuracy | 99.67% |
+| Fraud Precision | 20.26% |
+| Fraud Recall | 31.31% |
+| Fraud F1-score | 24.60% |
+| True Positives | 31 |
+| False Positives | 122 |
+| False Negatives | 68 |
+| True Negatives | 56,741 |
+
+The results highlight the challenges of detecting rare fraudulent transactions in highly imbalanced datasets. High overall accuracy does not necessarily indicate strong fraud detection performance.
+
+**Run the evaluation:**
+
+```bash
+python train_real_model.py
+```
+
+Download `creditcard.csv` from the Kaggle Credit Card Fraud Detection dataset and place it inside the `data/` directory before running.
+
+**Note:** This real-data model is evaluated separately. The current Kafka streaming consumer continues to use the original three-feature synthetic-data model.
+
 ## Author
 
 Prince Raj
